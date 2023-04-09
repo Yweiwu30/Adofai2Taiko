@@ -6,6 +6,7 @@ import shutil
 import os
 import zipfile
 import random
+import traceback
 from fractions import Fraction
 
 from PySide6.QtWidgets import *
@@ -81,7 +82,7 @@ class Adofai2Taiko(QMainWindow):
 
         if "pathData" in list(self.al.keys()): # 转换旧版谱面至新版
             angle = []
-            for i in range(len(self.self.al["pathData"])):
+            for i in range(len(self.al["pathData"])):
                 if self.al["pathData"][i] in list(angle_dict.keys()):
                     angle.append(angle_dict[self.al["pathData"][i]])
                 elif self.al["pathData"][i] == "5":
@@ -102,12 +103,17 @@ class Adofai2Taiko(QMainWindow):
         lb = self.ui.bpm.value()
         for i in self.al["actions"]:
             if i["eventType"] == "SetSpeed":
-                if i["speedType"] == "Bpm":
+                if "speedType" in i:
+                    if i["speedType"] == "Multiplier":
+                        dt["speed"].update({i["floor"]-1: i["bpmMultiplier"]*lb})
+                        lb *= i["bpmMultiplier"]
+                    else:
+                        dt["speed"].update({i["floor"]-1: i["beatsPerMinute"]})
+                        lb = i["beatsPerMinute"]
+
+                else:
                     dt["speed"].update({i["floor"]-1: i["beatsPerMinute"]})
                     lb = i["beatsPerMinute"]
-                else:
-                    dt["speed"].update({i["floor"]-1: i["bpmMultiplier"]*lb})
-                    lb *= i["bpmMultiplier"]
             elif i["eventType"] == "Twirl":
                 dt["rotate"].append(i["floor"]-1)
             elif i["eventType"] == "Pause":
@@ -216,7 +222,7 @@ class Adofai2Taiko(QMainWindow):
             except OSError:
                 QMessageBox.critical(self,"错误","文件保存失败，请检查源文件是否存在，剩余存储空间是否足够")
             except:
-                QMessageBox.critical(self,"错误","文件保存失败")
+                QMessageBox.critical(self,"错误","文件保存失败，以下是错误信息：\n"+traceback.format_exc())
 
     def startConvert(self):
         if self.adofaiFile == "":
@@ -227,9 +233,9 @@ class Adofai2Taiko(QMainWindow):
             try:
                 beat, tt, timed = self.adofaiConverter()
                 data = self.toMalody(beat, tt, timed)
+                self.writeChart(data)
             except:
-                QMessageBox.critical(self,"错误","谱面转换失败")
-            self.writeChart(data)
+                QMessageBox.critical(self,"错误","谱面转换失败，以下是错误信息：\n"+traceback.format_exc())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
